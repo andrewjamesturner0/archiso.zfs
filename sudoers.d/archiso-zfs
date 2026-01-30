@@ -1,0 +1,29 @@
+# Sudoers configuration for archiso-zfs automated builds
+# Install to: /etc/sudoers.d/archiso-zfs
+# Permissions: chmod 440 /etc/sudoers.d/archiso-zfs
+
+# ISO build script (runs entirely as root)
+# ISO build script (runs entirely as root)
+%wheel ALL=(root) NOPASSWD: {{SCRIPT_DIR}}/scripts/build-iso.sh
+
+# Chroot management for AUR builds (devtools)
+%wheel ALL=(root) NOPASSWD: /usr/bin/mkarchroot
+%wheel ALL=(root) NOPASSWD: /usr/bin/arch-nspawn
+%wheel ALL=(root) NOPASSWD: /usr/bin/makechrootpkg
+
+# Package management (used by chroot tools and mkarchiso)
+%wheel ALL=(root) NOPASSWD: /usr/bin/pacman
+
+# Mount operations for local repo bind mount
+%wheel ALL=(root) NOPASSWD: /usr/bin/mount
+%wheel ALL=(root) NOPASSWD: /usr/bin/umount
+
+# mkarchiso for building the ISO
+%wheel ALL=(root) NOPASSWD: /usr/bin/mkarchiso
+
+# File operations needed during build
+%wheel ALL=(root) NOPASSWD: /usr/bin/rm
+%wheel ALL=(root) NOPASSWD: /usr/bin/mkdir
+
+# Allow devtools environment variables for makechrootpkg
+Defaults env_keep += "BUILDTOOL BUILDTOOLVER"

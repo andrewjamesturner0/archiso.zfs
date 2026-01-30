@@ -1,0 +1,12 @@
+out/
+repo/
+state/
+work/
+*.iso
+*.log
+*.pkg.tar.zst
+*.lock
+archiso.zfs.code-workspace
+_aurbuild/
+_chroot/
+profile/
