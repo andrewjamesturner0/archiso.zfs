@@ -77,13 +77,28 @@ Server = file:///repo
 EOF
     sed -i 's/^#ParallelDownloads/ParallelDownloads/' "$PROFILE_DIR/pacman.conf"
 
-    # packages.x86_64: Replace linux with linux-lts, add ZFS packages
+    # packages.x86_64: Replace linux with linux-lts, broadcom-wl with dkms variant, add ZFS packages
     sed -i 's/^linux$/linux-lts\nlinux-lts-headers/' "$PROFILE_DIR/packages.x86_64"
+    sed -i 's/^broadcom-wl$/broadcom-wl-dkms/' "$PROFILE_DIR/packages.x86_64"
     cat >> "$PROFILE_DIR/packages.x86_64" <<EOF
 zfs-utils
 zfs-dkms
 EOF
-    
+
+    # mkinitcpio preset: rename linux -> linux-lts and fix paths
+    mv "$PROFILE_DIR/airootfs/etc/mkinitcpio.d/linux.preset" \
+       "$PROFILE_DIR/airootfs/etc/mkinitcpio.d/linux-lts.preset"
+    sed -i "s|vmlinuz-linux|vmlinuz-linux-lts|g; s|initramfs-linux\.img|initramfs-linux-lts.img|g" \
+        "$PROFILE_DIR/airootfs/etc/mkinitcpio.d/linux-lts.preset"
+
+    # mkinitcpio hooks: add zfs hook before filesystems
+    sed -i 's/ filesystems/ zfs filesystems/' \
+        "$PROFILE_DIR/airootfs/etc/mkinitcpio.conf.d/archiso.conf"
+
+    # Bootloader configs: update kernel/initramfs filenames for linux-lts
+    find "$PROFILE_DIR" \( -path '*/efiboot/*' -o -path '*/grub/*' -o -path '*/syslinux/*' \) \
+        -type f -exec sed -i 's/vmlinuz-linux/vmlinuz-linux-lts/g; s/initramfs-linux\.img/initramfs-linux-lts.img/g' {} +
+
     # Fix permissions for the build user
     chown -R "$BUILD_USER:$BUILD_USER" "$PROFILE_DIR"
     echo "    Profile setup complete."

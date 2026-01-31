@@ -1,0 +1,84 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Automated build system for creating Arch Linux installer ISOs with ZFS support via DKMS. Uses `linux-lts` kernel for ZFS compatibility. Builds are idempotent — version hashing skips rebuilds when kernel/ZFS versions haven't changed.
+
+## Build Commands
+
+```bash
+# Full build (orchestrator — acquires flock, checks versions, builds if needed)
+./build.sh
+
+# Initial environment setup (run once as root on a fresh Arch system)
+./setup-vm.sh
+
+# Clean all build artifacts, repos, state, and ISOs
+./cleanup.sh
+
+# Automated cron wrapper (logs to state/build.log)
+./cron-build.sh
+```
+
+Individual pipeline steps (normally called by `build.sh`, not directly):
+```bash
+# Check latest kernel + ZFS versions from pacman/AUR
+source scripts/common.env && ./scripts/get-build-versions.sh
+
+# Build ZFS AUR packages in clean chroot (run as non-root 'builder' user)
+./scripts/build-aur.sh
+
+# Build ISO with mkarchiso (run as root)
+sudo ./scripts/build-iso.sh
+```
+
+## Architecture
+
+```
+build.sh (orchestrator)
+├── flock on state/build.lock (prevents concurrent builds)
+├── scripts/get-build-versions.sh → queries pacman + AUR API
+├── MD5 hash comparison with state/last-build.hash → skip if unchanged
+├── scripts/build-aur.sh (as 'builder' user)
+│   ├── mkarchroot/arch-nspawn → clean chroot
+│   ├── git clone zfs-utils + zfs-dkms from AUR
+│   ├── makechrootpkg → build packages
+│   └── repo-add → update repo/customzfs.db.tar.gz
+├── scripts/build-iso.sh (as root)
+│   ├── mount --bind repo/ → /repo
+│   ├── mkarchiso → installs packages, DKMS compiles ZFS modules
+│   └── ISO rotation (keeps last 3)
+└── stores hash to state/last-build.hash
+```
+
+## Key Paths
+
+- `scripts/common.env` — shared config sourced by all scripts; defines `REPODIR`, `PROFILE`, `OUTDIR`, `STATEDIR`, `BUILD_ROOT` (`/var/tmp/archiso-zfs`)
+- `profile/` — ArchISO profile (copied from `releng` template by `setup-vm.sh`)
+- `profile/pacman.conf` — includes `[customzfs]` repo at `file:///repo`
+- `profile/packages.x86_64` — full package list for the ISO (linux-lts, zfs-utils, zfs-dkms, etc.)
+- `repo/` — local pacman repository with built ZFS packages
+- `state/` — build lock, log, and version hash
+- `sudoers.d/archiso-zfs` — template with `{{SCRIPT_DIR}}` placeholder, installed by `setup-vm.sh`
+
+## Profile Customizations (setup-vm.sh)
+
+When switching the ArchISO `releng` profile from `linux` to `linux-lts`, several files must be updated in lockstep:
+
+- `packages.x86_64` — replace `linux` with `linux-lts`/`linux-lts-headers`, replace `broadcom-wl` with `broadcom-wl-dkms` (DKMS modules need the `-dkms` variant)
+- `airootfs/etc/mkinitcpio.d/linux.preset` — rename to `linux-lts.preset` and update `vmlinuz-linux`/`initramfs-linux.img` paths inside
+- `airootfs/etc/mkinitcpio.conf.d/archiso.conf` — add `zfs` hook before `filesystems`
+- Bootloader configs (`efiboot/`, `grub/`, `syslinux/`) — update kernel/initramfs filenames to `vmlinuz-linux-lts`/`initramfs-linux-lts.img`
+
+Missing any of these causes build failures or unbootable ISOs.
+
+## Conventions
+
+- All scripts use `set -euo pipefail`
+- `trap cleanup EXIT` pattern for mount/unmount safety in `build-iso.sh`
+- CRLF→LF conversion handled in `build-aur.sh` for WSL compatibility (also enforced via `.gitattributes`)
+- Ephemeral build work goes to `/var/tmp/archiso-zfs/` (avoids WSL filesystem performance issues)
+- `build-aur.sh` must run as non-root; `build-iso.sh` must run as root
+- GPG key `6AD860EED4598027` (OpenZFS) is imported during setup
