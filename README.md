@@ -176,7 +176,7 @@ archiso.zfs/
 
 ## Credits & Caveats
 
-This project was developed with the assistance of **Antigravity**, a powerful agentic AI coding assistant from Google DeepMind.
+This project was developed with the assistance of **Antigravity** (Google DeepMind) and **Claude Code** (Anthropic).
 
 > [!WARNING]
 > While this build system aims for robustness and idempotency, it was generated and refined by an AI. Standard "AI-generated code" caveats apply:

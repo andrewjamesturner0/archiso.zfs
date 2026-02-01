@@ -99,6 +99,10 @@ EOF
     find "$PROFILE_DIR" \( -path '*/efiboot/*' -o -path '*/grub/*' -o -path '*/syslinux/*' \) \
         -type f -exec sed -i 's/vmlinuz-linux/vmlinuz-linux-lts/g; s/initramfs-linux\.img/initramfs-linux-lts.img/g' {} +
 
+    # profiledef.sh: rename ISO to archlinux.zfs and add timestamp to version
+    sed -i 's/^iso_name="archlinux"$/iso_name="archlinux.zfs"/' "$PROFILE_DIR/profiledef.sh"
+    sed -i 's/+%Y\.%m\.%d)/+%Y.%m.%d-%H%M%S)/' "$PROFILE_DIR/profiledef.sh"
+
     # Fix permissions for the build user
     chown -R "$BUILD_USER:$BUILD_USER" "$PROFILE_DIR"
     echo "    Profile setup complete."
